@@ -1,146 +1,100 @@
-# Video Clipper
+# ClipForge — long-form video clipper
 
-<p align="center">
-  <img src="assets/logo.svg" alt="Video Clipper logo" width="160">
-</p>
+ClipForge is a single-page video processing app with a FastAPI backend and FFmpeg. Upload one video, choose a maximum segment length (1–30 minutes), select one or more output aspect ratios, and download a single ZIP containing every successful clip.
 
-<p align="center">
-  Upload one long-form video, split it into clips, reformat each clip for multiple platforms, and download one organized ZIP.
-</p>
+## Screenshots
 
-## Features
+### Desktop
 
-- Resumable browser uploads in 4 MB chunks.
-- Supported input formats: MP4, MOV, MKV, WebM, AVI, M4V, MPG, and MPEG.
-- Configurable upload-size and duration limits.
-- Clip lengths up to 30 minutes per segment.
-- Five output formats:
-  - Reel / vertical — 9:16
-  - Video / landscape — 16:9
-  - Square — 1:1
-  - Portrait — 4:5
-  - Classic — 4:3
-- Letterboxes or pillarboxes video instead of cropping it.
-- Server-sent events (SSE) show per-clip processing progress.
-- A failed clip is reported without stopping the remaining clips.
-- One ZIP download with format folders such as `reel/part1.mp4` and `video/part1.mp4`.
-- Bundled FFmpeg and FFprobe binaries; a system FFmpeg installation is not required.
+![ClipForge desktop workflow](screenshots/clipforge-home.png)
 
-## Requirements
+### Mobile
 
-- Node.js 18 or newer
-- npm
-- Enough disk space for the source video, generated clips, and ZIP archive
+![ClipForge mobile workflow](screenshots/clipforge-mobile.png)
 
-## Quick start
+## Architecture decision: server-side FFmpeg
+
+This implementation processes videos on the server rather than in the browser. That is a more practical fit for long videos, multiple output encodes, audio retention, and consistent output quality. The browser uploads the source in 8 MiB chunks; the API stores each accepted chunk and reports the current byte offset, so a retry can continue from the last server-saved byte. FFmpeg renders each `(part, format)` independently and emits machine-readable progress; a failed output is recorded and the remaining outputs continue. Successful files are packaged as `reel/part1.mp4`, `video/part1.mp4`, `square/part1.mp4`, etc.
+
+## Fastest setup: Docker
+
+Requirements: Docker Desktop (Windows/macOS) or Docker Engine + the Compose plugin (Linux).
+
+From this folder, run:
 
 ```bash
-git clone https://github.com/karthi11040/video-clipper.git
-cd video-clipper
-npm install
-npm start
+docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in a browser.
+Open [http://localhost:8000](http://localhost:8000).
 
-`npm install` downloads the platform-specific `ffmpeg-static` and `ffprobe-static`
-packages. The application creates temporary processing data in `jobs/`; this
-directory is ignored by Git.
+Uploaded videos and temporary files are stored under `./data`. Stop the application with `Ctrl+C`; run `docker compose down` to stop the container.
 
-## Configuration
+## Run locally without Docker
 
-Set environment variables before starting the server:
+Requirements: Python 3.11+ and a recent FFmpeg build that includes `ffmpeg`, `ffprobe`, and the `-fps_mode passthrough` option.
 
-| Variable | Default | Description |
-| --- | ---: | --- |
-| `PORT` | `3000` | HTTP port |
-| `MAX_UPLOAD_MB` | `1024` | Maximum source-file size in MB |
-| `MAX_DURATION_SEC` | `14400` | Maximum source duration in seconds (4 hours) |
+1. Install FFmpeg and ensure both `ffmpeg` and `ffprobe` work from your terminal.
+   - Windows: install an FFmpeg build and add its `bin` directory to `PATH`.
+   - macOS: `brew install ffmpeg`
+   - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install ffmpeg`
+2. From this folder, create a virtual environment and install dependencies:
 
-PowerShell:
+   ```bash
+   python -m venv .venv
+   # Windows PowerShell:
+   .venv\Scripts\Activate.ps1
+   # macOS/Linux:
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
 
-```powershell
-$env:PORT = "3000"
-$env:MAX_UPLOAD_MB = "2048"
-$env:MAX_DURATION_SEC = "28800"
-npm start
-```
+3. Start the API and static frontend:
 
-## How it works
+   ```bash
+   uvicorn app:app --host 127.0.0.1 --port 8000
+   ```
 
-1. The browser calls `POST /api/upload/init`. The server validates the file extension and size and returns a job ID.
-2. The browser uploads 4 MB chunks to `POST /api/upload/:jobId/chunk`. Completed chunk indexes are stored in `localStorage`, so interrupted uploads can resume.
-3. `POST /api/upload/:jobId/complete` joins the chunks and uses FFprobe to verify the authoritative duration.
-4. `POST /api/jobs/:jobId/process` splits the source into sequential segments and transcodes each selected aspect ratio with FFmpeg.
-5. The browser listens to `GET /api/jobs/:jobId/events` for `part-start`, `progress`, `part-done`, `part-failed`, and `job-done` events.
-6. `GET /api/jobs/:jobId/download` streams the ZIP and removes the completed job afterward.
+4. Visit [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-The server uses input seeking, H.264 (`veryfast`, CRF 22), AAC audio, and
-`scale + pad + setsar=1` filters. The original content is fitted inside each
-target frame, so the video is not cropped.
+Run one Uvicorn worker for this demo because active job state is held in process memory. Data files themselves are persisted under `./data` (or `DATA_DIR`).
 
-## API summary
+## Limits and configuration
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/config` | Read limits, supported formats, and chunk size |
-| `POST` | `/api/upload/init` | Create a resumable upload job |
-| `POST` | `/api/upload/:jobId/chunk?index=N` | Upload one multipart chunk (`chunk` field) |
-| `POST` | `/api/upload/:jobId/complete` | Join chunks and validate duration |
-| `POST` | `/api/jobs/:jobId/process` | Process with `{ "maxLenSec": 60, "formats": ["reel", "video"] }` |
-| `GET` | `/api/jobs/:jobId/events` | Subscribe to processing events over SSE |
-| `GET` | `/api/jobs/:jobId/download` | Download the generated ZIP |
+Defaults are intentionally conservative for a self-hosted starter:
 
-## Project structure
+| Setting | Default | Purpose |
+|---|---:|---|
+| `MAX_UPLOAD_BYTES` | `3221225472` (3 GiB) | Maximum source file size |
+| `MAX_DURATION_SECONDS` | `10800` (3 hours) | Maximum accepted video duration |
+| `CHUNK_BYTES` | `8388608` (8 MiB) | Resumable upload chunk size |
+| `UPLOAD_TTL_SECONDS` | `86400` (24 hours) | Expiration for abandoned uploads |
+| `JOB_TTL_SECONDS` | `21600` (6 hours) | Expiration for finished ZIP files |
+| `FFMPEG_PRESET` | `veryfast` | FFmpeg speed/CPU trade-off |
+| `FFMPEG_CRF` | `23` | H.264 quality (lower is higher quality/larger files) |
 
-```text
-server.js       Express API, upload lifecycle, FFmpeg processing, and ZIP creation
-public/         Browser UI and client-side upload/progress logic
-assets/logo.svg Repository logo
-jobs/           Runtime job data (created automatically and ignored by Git)
-```
+Set environment variables before starting the app, or edit `docker-compose.yml`. Increasing the size/duration limits needs sufficient disk space, memory and CPU. For videos beyond this demo's limits, lower the source size/duration or deploy a dedicated server/worker with more resources.
 
-## Operational notes
+## Output behavior
 
-- Jobs are held in memory and are local to one server process. This is suitable
-  for local use or a single-instance deployment, not a multi-instance service.
-- Uploaded and generated media is temporary and is deleted after download; an
-  abandoned-job sweeper removes old jobs after two hours.
-- There is no authentication or access control. Do not expose this service
-  directly to the public internet without adding authentication, rate limiting,
-  HTTPS, and storage isolation.
-- Large videos require both temporary disk space and enough CPU time to encode
-  every selected format.
+- Segment numbering is consistent across every selected format: `part1.mp4` through `partN.mp4`.
+- The final segment is the remaining duration and is shorter when the source duration is not an exact multiple of the chosen length.
+- Reel (9:16), landscape (16:9), portrait 4:5 and classic 4:3 preserve the entire source frame and add black padding where needed. Square output uses a centered crop.
+- The original audio content is retained when present and encoded to AAC for MP4 compatibility. Video is encoded as H.264, with source timestamps passed through; no output frame rate is requested, and the pipeline does not deliberately downsample the frame rate.
+- If an output fails, its error is listed and other outputs continue. The ZIP includes successful outputs only; each included file is in a folder named for its format.
+- The ZIP is deleted after download. The input source and rendered intermediates are removed after processing. Abandoned upload sessions expire after 24 hours, and finished job files expire after 6 hours by default.
 
-## Troubleshooting
+## API overview
 
-### `npm install` fails while installing FFmpeg
+- `GET /api/health` — FFmpeg availability and configured limits.
+- `POST /api/uploads` — create an upload session.
+- `GET /api/uploads/{upload_id}` — inspect the stored byte offset and completion state.
+- `PATCH /api/uploads/{upload_id}` — append one binary chunk with the `Upload-Offset` header.
+- `POST /api/uploads/{upload_id}/complete` — verify the source with `ffprobe`.
+- `POST /api/jobs` — start processing with `upload_id`, `clip_length_minutes`, and `formats`.
+- `GET /api/jobs/{job_id}` — inspect progress and per-output failures.
+- `GET /api/jobs/{job_id}/download` — download the ZIP (server-side ZIP is removed after response).
 
-Check that Node.js and npm are up to date, then remove `node_modules` and
-`package-lock.json` only if you are intentionally refreshing dependencies.
-Run `npm install` again on the target operating system so the correct optional
-binary package is installed.
+## Production hardening notes
 
-### The browser cannot connect
-
-Confirm that `npm start` is still running and that the browser URL uses the
-configured `PORT`. On another device, bind the server through a suitable
-reverse proxy rather than exposing an unauthenticated development server.
-
-### A clip fails
-
-The UI reports the failed format and part while continuing the job. Check the
-server output for the FFmpeg error and try a supported input format or a
-shorter source clip.
-
-## Contributing
-
-1. Create a branch for your change.
-2. Keep behavior changes focused and update this README when the setup or API changes.
-3. Run `npm start` and exercise a small test video before opening a pull request.
-4. Do not commit `node_modules`, runtime media, `.env` files, or secrets.
-
-## License
-
-No license has been selected yet. Add a `LICENSE` file before distributing this
-project or accepting external contributions.
+This is a runnable starter, not a public multi-tenant service. It has no login, per-user quotas, rate limiting, or distributed job queue. Before exposing it to the internet, add authentication and request throttling, use TLS, configure reverse-proxy upload/body/time limits, monitor disk usage, and move job state to a durable database/queue (for example PostgreSQL plus a worker queue). Limit concurrent encodes based on CPU capacity. Keep the `data` directory private because it contains uploaded media and generated clips while a job is running.

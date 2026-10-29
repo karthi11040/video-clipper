@@ -1,10 +1,6 @@
-node_modules/
-jobs/
+__pycache__/
+*.py[cod]
+.venv/
+data/
 .env
-.env.*
-!.env.example
-*.log
-coverage/
-dist/
 .DS_Store
-Thumbs.db
