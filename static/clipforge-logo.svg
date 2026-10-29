@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1620 560" width="1620" height="560">
+  <defs>
+    <style>
+      .wordmark {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+        font-weight: 700;
+        font-size: 242px;
+        letter-spacing: -7.5px;
+        fill: #F8FAFC;
+      }
+    </style>
+  </defs>
+  <rect width="1620" height="560" fill="#0D1019" />
+  <g transform="rotate(-4.25 260 280)">
+    <path fill="#A7F06B" fill-rule="evenodd" d="
+      M 186 120 H 334 A 86 86 0 0 1 420 206 V 354 A 86 86 0 0 1 334 440 H 186 A 86 86 0 0 1 100 354 V 206 A 86 86 0 0 1 186 120 Z
+      M 186 236 A 16 16 0 0 1 218 236 V 324 A 16 16 0 0 1 186 324 Z
+      M 244 210 A 16 16 0 0 1 276 210 V 350 A 16 16 0 0 1 244 350 Z
+      M 302 236 A 16 16 0 0 1 334 236 V 324 A 16 16 0 0 1 302 324 Z
+    " />
+  </g>
+  <text x="568" y="360" class="wordmark">clipforge</text>
+</svg>
