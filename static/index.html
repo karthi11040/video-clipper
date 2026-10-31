@@ -16,15 +16,21 @@
         <img class="brand-logo" src="/static/clipforge-logo.svg" alt="ClipForge" />
       </a>
       <div class="topbar-right">
-        <span class="server-dot"></span><span>Private, self-hosted processing</span>
+        <div class="topbar-telemetry"><span class="server-dot"></span><span>Local render engine ready</span><span class="telemetry-divider"></span><span>FFmpeg</span></div>
         <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light theme">☼</button>
       </div>
     </header>
 
     <section class="hero">
-      <div class="eyebrow"><span class="eyebrow-spark">✦</span> ONE VIDEO. EVERY FORMAT.</div>
+      <div class="eyebrow"><span class="eyebrow-spark">✦</span> AUTONOMOUS MULTI-FORMAT CLIP SYNTHESIZER</div>
       <h1>Turn long videos into<br /><span>ready-to-post clips.</span></h1>
-      <p class="hero-copy">Split your footage into clean segments, format each one for your channels, and download everything in a single ZIP.</p>
+      <p class="hero-copy">Drop in a source, set your publishing formats, and let the local ClipForge engine produce a clean ZIP of ready-to-share segments.</p>
+    </section>
+
+    <section class="engine-strip" aria-label="ClipForge capabilities">
+      <div class="engine-status"><span class="engine-icon">01</span><div><strong>Private by default</strong><small>Media stays on this server</small></div></div>
+      <div class="engine-status"><span class="engine-icon">02</span><div><strong>Timestamp-safe output</strong><small>Source cadence is preserved</small></div></div>
+      <div class="engine-status"><span class="engine-icon">03</span><div><strong>Batch-ready delivery</strong><small>Every format in one ZIP</small></div></div>
     </section>
 
     <section class="workflow-card" aria-label="Video clipping workflow">
@@ -169,7 +175,7 @@
     </section>
 
     <footer class="footer">
-      <span>ClipForge <span class="footer-dot">·</span> v1.1.1 <span class="footer-dot">·</span> FFmpeg-powered</span>
+      <span>ClipForge <span class="footer-dot">·</span> v1.1.2 <span class="footer-dot">·</span> FFmpeg-powered</span>
       <span class="footer-note">Files are processed on this server and temporary files are cleaned up.</span>
     </footer>
   </main>
