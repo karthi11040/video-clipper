@@ -35,8 +35,15 @@
   const downloadPanel = $('#downloadPanel');
   const downloadButton = $('#downloadButton');
   const downloadDescription = $('#downloadDescription');
+  const cancelUploadButton = $('#cancelUploadButton');
+  const themeToggle = $('#themeToggle');
+  const historyCard = $('#historyCard');
+  const historyList = $('#historyList');
+  const clearHistoryButton = $('#clearHistoryButton');
 
   const STORAGE_KEY = 'clipforge.upload.v1';
+  const HISTORY_KEY = 'clipforge.history.v1';
+  const THEME_KEY = 'clipforge.theme.v1';
   const CHUNK_FALLBACK = 8 * 1024 * 1024;
   const fallbackMaxBytes = 3 * 1024 * 1024 * 1024;
   const allowedExtensions = new Set(['mp4', 'mov', 'm4v', 'mkv', 'webm', 'avi', 'mpeg', 'mpg', '3gp', 'wmv', 'ts']);
@@ -52,6 +59,8 @@
   let processBusy = false;
   let currentJobId = null;
   let pollingTimer = null;
+  let activeUploadXhr = null;
+  let cancelUploadRequested = false;
 
   function formatBytes(bytes) {
     if (!Number.isFinite(bytes) || bytes < 0) return '—';
@@ -125,6 +134,39 @@
     uploadButton.disabled = false;
     const canResume = currentUploadId && resumeSession && selectedFile.name === resumeSession.filename && selectedFile.size === resumeSession.size;
     uploadButtonText.textContent = canResume ? 'Resume upload' : 'Upload video';
+  }
+
+  function renderHistory() {
+    let history = [];
+    try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (_) { history = []; }
+    historyCard.hidden = !history.length;
+    historyList.replaceChildren();
+    history.slice(0, 8).forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      const details = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = item.filename;
+      const meta = document.createElement('small');
+      meta.textContent = `${item.formats.join(', ')} · ${item.segments} segment${item.segments === 1 ? '' : 's'} · ${new Date(item.completedAt).toLocaleString()}`;
+      details.append(title, meta);
+      const link = document.createElement('a');
+      link.className = 'button button-secondary';
+      link.href = `/api/jobs/${encodeURIComponent(item.jobId)}/download`;
+      link.textContent = 'Download';
+      link.setAttribute('download', '');
+      row.append(details, link);
+      historyList.append(row);
+    });
+  }
+
+  function saveHistory(job) {
+    if (!job.download_available || !currentJobId) return;
+    let history = [];
+    try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (_) { history = []; }
+    history = [{ jobId: currentJobId, filename: job.filename, formats: job.formats, segments: job.segment_count, completedAt: new Date().toISOString() }, ...history.filter((item) => item.jobId !== currentJobId)].slice(0, 8);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    renderHistory();
   }
 
   function getSelectedFormats() {
@@ -253,6 +295,7 @@
   function xhrUploadChunk(uploadId, blob, offset, onProgress) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+      activeUploadXhr = xhr;
       xhr.open('PATCH', `/api/uploads/${encodeURIComponent(uploadId)}`);
       xhr.setRequestHeader('Content-Type', 'application/octet-stream');
       xhr.setRequestHeader('Upload-Offset', String(offset));
@@ -268,6 +311,7 @@
         else reject(new Error(data.detail || `Chunk upload failed (${xhr.status}).`));
       };
       xhr.onerror = () => reject(new Error('Network connection interrupted while uploading a chunk.'));
+      xhr.onabort = () => reject(new Error('Upload cancelled.'));
       xhr.ontimeout = () => reject(new Error('This chunk took too long to upload. Retry to continue from the last saved byte.'));
       xhr.send(blob);
     });
@@ -282,6 +326,8 @@
   async function uploadFile() {
     if (!selectedFile || uploadBusy) return;
     uploadBusy = true;
+    cancelUploadRequested = false;
+    cancelUploadButton.hidden = false;
     uploadButton.disabled = true;
     updateUploadButton();
     setStatus(uploadStatus, 'Preparing your upload…');
@@ -319,6 +365,7 @@
       let consecutiveFailures = 0;
 
       while (offset < selectedFile.size) {
+        if (cancelUploadRequested) throw new Error('Upload cancelled.');
         const end = Math.min(selectedFile.size, offset + chunkBytes);
         const chunk = selectedFile.slice(offset, end);
         try {
@@ -361,6 +408,13 @@
       saveSession({ uploadId, filename: selectedFile.name, size: selectedFile.size, lastModified: selectedFile.lastModified, status: 'completed', video: completed.video });
       onUploadCompleted(completed.video);
     } catch (error) {
+      if (cancelUploadRequested) {
+        setStatus(uploadStatus, 'Upload cancelled. The saved upload session was removed.', 'success');
+        clearSavedSession();
+        currentUploadId = null;
+        uploadedVideo = null;
+        uploadProgressWrap.hidden = true;
+      } else {
       setStatus(uploadStatus, error.message || 'Upload failed. Try again.', 'error');
       uploadProgressLabel.textContent = 'Upload paused';
       uploadProgressDetail.textContent = 'Your server-saved chunks are kept temporarily. Retry to resume where possible.';
@@ -368,7 +422,10 @@
         saveSession({ uploadId: currentUploadId, filename: selectedFile.name, size: selectedFile.size, lastModified: selectedFile.lastModified, status: 'uploading' });
       }
       uploadButtonText.textContent = 'Retry / resume upload';
+      }
     } finally {
+      activeUploadXhr = null;
+      cancelUploadButton.hidden = true;
       uploadBusy = false;
       updateUploadButton();
       updateClipPreview();
@@ -524,6 +581,7 @@
     if (job.download_available) {
       downloadButton.href = `/api/jobs/${encodeURIComponent(job.id)}/download`;
       downloadDescription.textContent = `${completed} successful file${completed === 1 ? '' : 's'} grouped in format folders${failed ? ` · ${failed} failed output${failed === 1 ? '' : 's'} skipped` : ''}. The ZIP is removed from the server after download.`;
+      saveHistory(job);
     }
   }
 
@@ -568,6 +626,11 @@
   }
 
   async function initialize() {
+    const savedTheme = localStorage.getItem(THEME_KEY);
+    if (savedTheme === 'light') document.body.classList.add('theme-light');
+    themeToggle.textContent = savedTheme === 'light' ? '☾' : '☼';
+    themeToggle.setAttribute('aria-label', savedTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+    renderHistory();
     try {
       const health = await api('/api/health');
       maxUploadBytes = Number(health.max_upload_bytes || fallbackMaxBytes);
@@ -618,6 +681,24 @@
     downloadButton.setAttribute('aria-disabled', 'true');
     downloadButton.querySelector('span').textContent = 'Download started';
     downloadDescription.textContent = 'Your ZIP download has been requested. The server removes the ZIP after the response is sent.';
+  });
+  cancelUploadButton.addEventListener('click', async () => {
+    if (!uploadBusy) return;
+    cancelUploadRequested = true;
+    activeUploadXhr?.abort();
+    if (currentUploadId) {
+      try { await api(`/api/uploads/${encodeURIComponent(currentUploadId)}`, { method: 'DELETE' }); } catch (_) { /* Upload cancellation remains safe to retry. */ }
+    }
+  });
+  themeToggle.addEventListener('click', () => {
+    const light = document.body.classList.toggle('theme-light');
+    localStorage.setItem(THEME_KEY, light ? 'light' : 'dark');
+    themeToggle.textContent = light ? '☾' : '☼';
+    themeToggle.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+  });
+  clearHistoryButton.addEventListener('click', () => {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
   });
 
   initialize();

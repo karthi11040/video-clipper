@@ -22,6 +22,7 @@ from starlette.background import BackgroundTask
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data"))).resolve()
+VERSION = (BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
 UPLOADS_DIR = DATA_DIR / "uploads"
 JOBS_DIR = DATA_DIR / "jobs"
 
@@ -180,6 +181,7 @@ async def index() -> FileResponse:
 async def health() -> dict[str, Any]:
     return {
         "ok": True,
+        "version": VERSION,
         "ffmpeg_available": shutil.which("ffmpeg") is not None,
         "ffprobe_available": shutil.which("ffprobe") is not None,
         "max_upload_bytes": MAX_UPLOAD_BYTES,
