@@ -28,7 +28,21 @@
     </section>
 
     <section class="workflow-card" aria-label="Video clipping workflow">
-      <div class="section-heading">
+      <nav class="workflow-steps" aria-label="Workflow steps">
+        <button class="workflow-step active" type="button" data-step-target="uploadSection">
+          <span class="workflow-step-number">01</span><span><strong>Upload</strong><small>Add your source video</small></span>
+        </button>
+        <span class="step-connector" aria-hidden="true"></span>
+        <button class="workflow-step" type="button" data-step-target="settingsSection">
+          <span class="workflow-step-number">02</span><span><strong>Configure</strong><small>Choose length and formats</small></span>
+        </button>
+        <span class="step-connector" aria-hidden="true"></span>
+        <button class="workflow-step" type="button" data-step-target="reviewSection">
+          <span class="workflow-step-number">03</span><span><strong>Process</strong><small>Build and download clips</small></span>
+        </button>
+      </nav>
+
+      <div class="section-heading step-section" id="uploadSection">
         <div class="step-number">01</div>
         <div><h2>Upload your video</h2><p>Choose a source file to get started.</p></div>
       </div>
@@ -59,7 +73,7 @@
 
       <div class="divider"></div>
 
-      <div class="section-heading compact-heading">
+      <div class="section-heading compact-heading step-section" id="settingsSection">
         <div class="step-number">02</div>
         <div><h2>Choose your clip length</h2><p>Each segment will be at most this long.</p></div>
       </div>
@@ -78,7 +92,7 @@
 
       <div class="divider"></div>
 
-      <div class="section-heading compact-heading">
+      <div class="section-heading compact-heading step-section" id="reviewSection">
         <div class="step-number">03</div>
         <div><h2>Select output formats</h2><p>Choose one or more sizes for every clip.</p></div>
       </div>
@@ -155,7 +169,7 @@
     </section>
 
     <footer class="footer">
-      <span>ClipForge <span class="footer-dot">·</span> v1.1.0 <span class="footer-dot">·</span> FFmpeg-powered</span>
+      <span>ClipForge <span class="footer-dot">·</span> v1.1.1 <span class="footer-dot">·</span> FFmpeg-powered</span>
       <span class="footer-note">Files are processed on this server and temporary files are cleaned up.</span>
     </footer>
   </main>

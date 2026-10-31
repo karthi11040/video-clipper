@@ -40,6 +40,7 @@
   const historyCard = $('#historyCard');
   const historyList = $('#historyList');
   const clearHistoryButton = $('#clearHistoryButton');
+  const workflowSteps = [...document.querySelectorAll('.workflow-step')];
 
   const STORAGE_KEY = 'clipforge.upload.v1';
   const HISTORY_KEY = 'clipforge.history.v1';
@@ -61,6 +62,15 @@
   let pollingTimer = null;
   let activeUploadXhr = null;
   let cancelUploadRequested = false;
+
+  function updateWorkflowSteps() {
+    const minutesValid = Number.isInteger(Number(clipMinutesInput.value)) && Number(clipMinutesInput.value) >= 1 && Number(clipMinutesInput.value) <= 30;
+    const current = processBusy || currentJobId ? 3 : uploadedVideo && minutesValid ? 2 : 1;
+    workflowSteps.forEach((step, index) => {
+      step.classList.toggle('active', index + 1 === current);
+      step.classList.toggle('complete', index + 1 < current);
+    });
+  }
 
   function formatBytes(bytes) {
     if (!Number.isFinite(bytes) || bytes < 0) return '—';
@@ -179,6 +189,7 @@
       card.classList.toggle('selected', input.checked);
     });
     updateStartButton();
+    updateWorkflowSteps();
   }
 
   function updateClipPreview() {
@@ -187,12 +198,14 @@
       clipCount.textContent = '—';
       clipCountDetail.textContent = 'Enter a whole number from 1 to 30 minutes.';
       updateStartButton();
+      updateWorkflowSteps();
       return;
     }
     if (!uploadedVideo || !Number.isFinite(uploadedVideo.duration_seconds)) {
       clipCount.textContent = '—';
       clipCountDetail.textContent = 'Upload a video to calculate the number of segments.';
       updateStartButton();
+      updateWorkflowSteps();
       return;
     }
     const duration = Number(uploadedVideo.duration_seconds);
@@ -699,6 +712,11 @@
   clearHistoryButton.addEventListener('click', () => {
     localStorage.removeItem(HISTORY_KEY);
     renderHistory();
+  });
+  workflowSteps.forEach((step) => {
+    step.addEventListener('click', () => {
+      document.getElementById(step.dataset.stepTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   });
 
   initialize();
