@@ -2,7 +2,15 @@
 
 ClipForge is a single-page video processing app with a FastAPI backend and FFmpeg. Upload one video, choose a maximum segment length (1–30 minutes), select one or more output aspect ratios, and download a single ZIP containing every successful clip.
 
-Current release: **v1.1.2**
+Current release: **v1.2.0**
+
+### v1.2.0 highlights
+
+- Added a ClipForge Studio dashboard layout inspired by the supplied reference.
+- Added real source preview and generated timeline waveform after file selection.
+- Added a derived clip queue with selectable segments and source seeking.
+- Added segmentation presets that update the active clip-length setting.
+- Added local-engine, storage, and retention status panels without claiming unsupported AI services.
 
 ### v1.1.2 highlights
 

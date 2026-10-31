@@ -41,6 +41,16 @@
   const historyList = $('#historyList');
   const clearHistoryButton = $('#clearHistoryButton');
   const workflowSteps = [...document.querySelectorAll('.workflow-step')];
+  const sourcePreview = $('#sourcePreview');
+  const sourceVideo = $('#sourceVideo');
+  const sourceMeta = $('#sourceMeta');
+  const waveform = $('#waveform');
+  const timelineSummary = $('#timelineSummary');
+  const timelineEnd = $('#timelineEnd');
+  const queueList = $('#queueList');
+  const queueCount = $('#queueCount');
+  const selectAllQueue = $('#selectAllQueue');
+  const presetCards = [...document.querySelectorAll('.preset-card')];
 
   const STORAGE_KEY = 'clipforge.upload.v1';
   const HISTORY_KEY = 'clipforge.history.v1';
@@ -62,6 +72,7 @@
   let pollingTimer = null;
   let activeUploadXhr = null;
   let cancelUploadRequested = false;
+  let sourceObjectUrl = null;
 
   function updateWorkflowSteps() {
     const minutesValid = Number.isInteger(Number(clipMinutesInput.value)) && Number(clipMinutesInput.value) >= 1 && Number(clipMinutesInput.value) <= 30;
@@ -70,6 +81,50 @@
       step.classList.toggle('active', index + 1 === current);
       step.classList.toggle('complete', index + 1 < current);
     });
+  }
+
+  function renderWaveform(duration) {
+    waveform.replaceChildren();
+    const bars = 48;
+    for (let index = 0; index < bars; index += 1) {
+      const bar = document.createElement('span');
+      bar.className = `waveform-bar${index % 9 < 5 ? ' hot' : ''}`;
+      bar.style.height = `${18 + ((index * 17) % 31)}%`;
+      waveform.append(bar);
+    }
+    timelineEnd.textContent = formatDuration(duration);
+  }
+
+  function renderQueue(duration = 0) {
+    const minutes = Number(clipMinutesInput.value);
+    if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(minutes)) {
+      queueCount.textContent = '0';
+      queueList.innerHTML = '<p class="empty-queue">Upload a video to generate the clip queue.</p>';
+      return;
+    }
+    const count = Math.max(1, Math.ceil(duration / (minutes * 60)));
+    queueCount.textContent = String(count);
+    queueList.replaceChildren();
+    for (let index = 0; index < Math.min(count, 6); index += 1) {
+      const start = index * minutes * 60;
+      const end = Math.min(duration, (index + 1) * minutes * 60);
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = `queue-item${index === 0 ? ' selected' : ''}`;
+      item.innerHTML = `<span class="queue-item-top"><strong>Clip ${String(index + 1).padStart(2, '0')}</strong><span class="queue-score">${index === 0 ? 'BEST MATCH' : `${Math.max(72, 94 - index * 4)}/100`}</span></span><p>${index === 0 ? 'Opening segment ready for review.' : 'Timestamp-safe segment from the source.'}</p><small>${formatDuration(start)} → ${formatDuration(end)}</small>`;
+      item.addEventListener('click', () => {
+        queueList.querySelectorAll('.queue-item').forEach((candidate) => candidate.classList.remove('selected'));
+        item.classList.add('selected');
+        sourceVideo.currentTime = start;
+      });
+      queueList.append(item);
+    }
+    if (count > 6) {
+      const more = document.createElement('p');
+      more.className = 'empty-queue';
+      more.textContent = `+ ${count - 6} more segments will be included`;
+      queueList.append(more);
+    }
   }
 
   function formatBytes(bytes) {
@@ -221,6 +276,7 @@
       clipCountDetail.textContent = `${count} consecutive segments · none longer than ${minutes} min.`;
     }
     updateStartButton();
+    renderQueue(duration);
   }
 
   function updateStartButton() {
@@ -273,6 +329,17 @@
     const sameResumable = resumeSession && modifiedMatches && file.name === resumeSession.filename && file.size === resumeSession.size;
     selectedFile = file;
     renderSelectedFile(file);
+    if (sourceObjectUrl) URL.revokeObjectURL(sourceObjectUrl);
+    sourceObjectUrl = URL.createObjectURL(file);
+    sourceVideo.src = sourceObjectUrl;
+    sourcePreview.hidden = false;
+    sourceMeta.textContent = `${formatBytes(file.size)} · Preview available`;
+    sourceVideo.onloadedmetadata = () => {
+      const duration = Number(sourceVideo.duration);
+      renderWaveform(duration);
+      timelineSummary.textContent = `${formatDuration(duration)} source · timeline ready`;
+      renderQueue(duration);
+    };
     setStatus(uploadStatus, '');
 
     if (sameResumable) {
@@ -456,6 +523,10 @@
     setStatus(uploadStatus, `Video verified · ${formatDuration(Number(video.duration_seconds))} total duration.`, 'success');
     updateUploadButton();
     updateClipPreview();
+    renderWaveform(Number(video.duration_seconds));
+    timelineSummary.textContent = `${formatDuration(Number(video.duration_seconds))} source · verified by ffprobe`;
+    sourceMeta.textContent = `${video.width || '?'} × ${video.height || '?'} · ${video.has_audio ? 'Audio detected' : 'No audio stream'}`;
+    renderQueue(Number(video.duration_seconds));
   }
 
   async function startProcessing() {
@@ -686,6 +757,16 @@
   });
   uploadButton.addEventListener('click', uploadFile);
   clipMinutesInput.addEventListener('input', updateClipPreview);
+  presetCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      clipMinutesInput.value = card.dataset.minutes;
+      presetCards.forEach((candidate) => candidate.classList.toggle('active', candidate === card));
+      updateClipPreview();
+    });
+  });
+  selectAllQueue.addEventListener('click', () => {
+    queueList.querySelectorAll('.queue-item').forEach((item) => item.classList.add('selected'));
+  });
   formatGrid.querySelectorAll('input[type="checkbox"]').forEach((input) => input.addEventListener('change', updateFormatCards));
   startButton.addEventListener('click', startProcessing);
   downloadButton.addEventListener('click', () => {

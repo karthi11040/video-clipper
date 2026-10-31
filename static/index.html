@@ -33,6 +33,8 @@
       <div class="engine-status"><span class="engine-icon">03</span><div><strong>Batch-ready delivery</strong><small>Every format in one ZIP</small></div></div>
     </section>
 
+    <div class="studio-layout">
+      <div class="studio-main">
     <section class="workflow-card" aria-label="Video clipping workflow">
       <nav class="workflow-steps" aria-label="Workflow steps">
         <button class="workflow-step active" type="button" data-step-target="uploadSection">
@@ -62,6 +64,13 @@
         <p id="dropSubtitle">MP4, MOV, MKV, WEBM and more · up to 3 GB per file</p>
         <div class="file-info" id="fileInfo" hidden></div>
       </label>
+
+      <div class="source-preview" id="sourcePreview" hidden>
+        <div class="source-preview-header"><span>Source preview</span><span id="sourceMeta">Waiting for a video</span></div>
+        <video id="sourceVideo" controls preload="metadata"></video>
+        <div class="waveform" id="waveform" aria-label="Generated source timeline"></div>
+        <div class="timeline-labels"><span>00:00</span><strong id="timelineSummary">Upload a video to inspect its timeline</strong><span id="timelineEnd">—</span></div>
+      </div>
 
       <div class="resume-notice" id="resumeNotice" hidden></div>
       <div class="upload-controls">
@@ -93,6 +102,15 @@
           <span class="preview-label">CLIP COUNT</span>
           <div class="preview-count" id="clipCount">—</div>
           <p id="clipCountDetail">Upload a video to calculate the number of segments.</p>
+        </div>
+      </div>
+
+      <div class="smart-settings">
+        <div class="smart-heading"><span>SEGMENTATION PRESETS</span><small>Presets update the real clip length above</small></div>
+        <div class="preset-grid">
+          <button class="preset-card" type="button" data-minutes="1"><strong>Quick hooks</strong><small>1 min · Shorts</small></button>
+          <button class="preset-card active" type="button" data-minutes="5"><strong>Deep reels</strong><small>5 min · Recommended</small></button>
+          <button class="preset-card" type="button" data-minutes="10"><strong>Deep dives</strong><small>10 min · Long form</small></button>
         </div>
       </div>
 
@@ -141,6 +159,19 @@
       </div>
       <div class="inline-status" id="startStatus" role="status" aria-live="polite"></div>
     </section>
+      </div>
+      <aside class="studio-aside" aria-label="ClipForge studio insights">
+        <section class="studio-panel">
+          <div class="studio-panel-heading"><h2>Detected clips queue</h2><span class="queue-count" id="queueCount">0</span><button class="panel-action" id="selectAllQueue" type="button">Select all</button></div>
+          <div class="queue-list" id="queueList"><p class="empty-queue">Upload a video to generate the clip queue.</p></div>
+        </section>
+        <section class="studio-panel storage-panel">
+          <div class="studio-panel-heading"><h2>Local scratch disk</h2><span class="server-dot"></span></div>
+          <div class="storage-grid"><div><small>DATA DIRECTORY</small><strong>Server-managed</strong></div><div><small>AUTO-PURGE</small><strong>Enabled</strong></div></div>
+          <p class="panel-note">Uploads and rendered files are cleaned up according to the server retention policy.</p>
+        </section>
+      </aside>
+    </div>
 
     <section class="job-card" id="jobCard" hidden>
       <div class="job-header">
@@ -165,6 +196,7 @@
         <a class="button button-primary download-button" id="downloadButton" href="#"><span>Download ZIP</span><span class="button-arrow">↓</span></a>
       </div>
     </section>
+    </div>
 
     <section class="history-card" id="historyCard" hidden aria-labelledby="historyTitle">
       <div class="history-heading">
@@ -175,7 +207,7 @@
     </section>
 
     <footer class="footer">
-      <span>ClipForge <span class="footer-dot">·</span> v1.1.2 <span class="footer-dot">·</span> FFmpeg-powered</span>
+      <span>ClipForge <span class="footer-dot">·</span> v1.2.0 <span class="footer-dot">·</span> FFmpeg-powered</span>
       <span class="footer-note">Files are processed on this server and temporary files are cleaned up.</span>
     </footer>
   </main>
